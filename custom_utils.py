@@ -13,8 +13,6 @@ def test_acc(custom_data, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
     cat_pred = logits.argmax(1)
     real_pred = np.zeros_like(cat_pred)
-    print '================'
-    # print cat_pred
     for cat in xrange(logits.shape[1]):
         idx = cat_pred == cat
         test_num = sum(custom_data['test']['clusters'] == cat)
@@ -47,12 +45,10 @@ def train_custom(fname, custom_data, sess_info, epochs):
     iterep = 500
     index = 0
 
+    # print 0 epoch
     random_choices = np.random.choice(50000, 10000)
     a, b = sess.run([nent, loss], feed_dict={'x:0': custom_data['train']['data'][random_choices], 'l:0': custom_data['train']['labels'][random_choices]})
-    c, d, g, h = sess.run([nent, loss, x, x_reconstruct], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
-    # print '================='
-    # print g
-    # print h
+    c, d = sess.run([nent, loss], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
     a, b, c, d = -a.mean(), b.mean(), -c.mean(), d.mean()
     e = test_acc(custom_data, sess, qy_logit)
     string = ('{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s}'
@@ -69,10 +65,7 @@ def train_custom(fname, custom_data, sess_info, epochs):
         if (i + 1) %  iterep == 0:
             random_choices = np.random.choice(50000, 10000)
             a, b = sess.run([nent, loss], feed_dict={'x:0': custom_data['train']['data'][random_choices], 'l:0': custom_data['train']['labels'][random_choices]})
-            c, d, g, h = sess.run([nent, loss, x, x_reconstruct], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
-            print '================='
-            print g
-            print h
+            c, d = sess.run([nent, loss, x], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
             a, b, c, d = -a.mean(), b.mean(), -c.mean(), d.mean()
             e = test_acc(custom_data, sess, qy_logit)
             string = ('{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s}'
