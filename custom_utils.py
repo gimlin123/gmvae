@@ -65,7 +65,7 @@ def train_custom(fname, custom_data, sess_info, epochs):
         if (i + 1) %  iterep == 0:
             random_choices = np.random.choice(50000, 10000)
             a, b = sess.run([nent, loss], feed_dict={'x:0': custom_data['train']['data'][random_choices], 'l:0': custom_data['train']['labels'][random_choices]})
-            c, d = sess.run([nent, loss, x], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
+            c, d = sess.run([nent, loss], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
             a, b, c, d = -a.mean(), b.mean(), -c.mean(), d.mean()
             e = test_acc(custom_data, sess, qy_logit)
             string = ('{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s}'

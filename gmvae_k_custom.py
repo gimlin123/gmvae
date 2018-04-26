@@ -70,7 +70,7 @@ for i in xrange(k):
 # Aggressive name scoping for pretty graph visualization :P
 with tf.name_scope('loss'):
     with tf.name_scope('neg_entropy'):
-        nent = -100000*cross_entropy_with_logits(qy_logit, qy)
+        nent = cross_entropy_with_logits(qy_logit, qy)
     losses = [None] * k
     for i in xrange(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
