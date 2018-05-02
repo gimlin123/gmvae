@@ -22,10 +22,10 @@ except IndexError:
 def mean_squared_error(labels, predictions):
     return tf.reduce_mean(tf.squared_difference(labels, predictions))
 
-def labeled_loss(x, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior, l, l_predict):
-    xy_loss = -log_normal(x, x_reconstruct, xv)
+def labeled_loss(xr, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior, l, l_predict):
+    xy_loss = -log_normal(xr, x_reconstruct, xv) / 5
     # xy_loss += mean_squared_error(l, l_predict)
-    # xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior)) * 0.01
+    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
     return xy_loss - np.log(0.1)
 
 def px_graph(z, y):
@@ -51,30 +51,33 @@ tf.reset_default_graph()
 x = Placeholder((None, 300), name='x')
 l = Placeholder((None, None), name='l')
 
+# binarize data and create a y "placeholder"
+with tf.name_scope('x_reducedv'):
+    xr = x / 100.
 #create a y "placeholder"
 with tf.name_scope('y_'):
     y_ = tf.fill(tf.pack([tf.shape(x)[0], k]), 0.0)
 
 # propose distribution over y
-qy_logit, qy = qy_graph(x, k)
+qy_logit, qy = qy_graph(xr, k)
 
 # for each proposed y, infer z and reconstruct x and l
 z, zm, zv, zm_prior, zv_prior, x_reconstruct, l_predict, xv = [[None] * k for i in xrange(8)]
 for i in xrange(k):
     with tf.name_scope('graphs/hot_at{:d}'.format(i)):
         y = tf.add(y_, Constant(np.eye(k)[i], name='hot_at_{:d}'.format(i)))
-        z[i], zm[i], zv[i] = qz_graph(x, y)
+        z[i], zm[i], zv[i] = qz_graph(xr, y)
         l_predict[i] = ql_graph(y)
         zm_prior[i], zv_prior[i], x_reconstruct[i], xv[i] = px_graph(z[i], y)
 
 # Aggressive name scoping for pretty graph visualization :P
 with tf.name_scope('loss'):
     with tf.name_scope('neg_entropy'):
-        nent = cross_entropy_with_logits(qy_logit, qy)
+        nent = -cross_entropy_with_logits(qy_logit, qy)
     losses = [None] * k
     for i in xrange(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
-            losses[i] = labeled_loss(x, x_reconstruct[i], xv[i], z[i], zm[i], zv[i], zm_prior[i], zv_prior[i], l, l_predict[i])
+            losses[i] = labeled_loss(xr, x_reconstruct[i], xv[i], z[i], zm[i], zv[i], zm_prior[i], zv_prior[i], l, l_predict[i])
     with tf.name_scope('final_loss'):
         loss = tf.add_n([nent] + [qy[:, i] * losses[i] for i in xrange(k)])
     # with tf.name_scope('label_loss'):

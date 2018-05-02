@@ -13,6 +13,7 @@ def test_acc(custom_data, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
     cat_pred = logits.argmax(1)
     real_pred = np.zeros_like(cat_pred)
+    print logits
     for cat in xrange(logits.shape[1]):
         idx = cat_pred == cat
         test_num = sum(custom_data['test']['clusters'] == cat)
