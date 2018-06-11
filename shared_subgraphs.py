@@ -21,8 +21,8 @@ def qz_graph(x, y):
         xy = tf.concat(1, (x, y), name='xy/concat')
         h1 = Dense(xy, 512, 'layer1', tf.nn.relu, reuse=reuse)
         h2 = Dense(h1, 512, 'layer2', tf.nn.relu, reuse=reuse)
-        zm = Dense(h2, 50, 'zm', reuse=reuse)
-        zv = Dense(h2, 50, 'zv', tf.nn.softplus, reuse=reuse)
+        zm = Dense(h2, 64, 'zm', reuse=reuse)
+        zv = Dense(h2, 64, 'zv', tf.nn.softplus, reuse=reuse)
         z = GaussianSample(zm, zv, 'z')
     return z, zm, zv
 

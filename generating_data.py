@@ -50,7 +50,7 @@ def generate_dataset(means, variances, z_to_mu, z_to_var, clus_to_mu, clus_to_va
     return dataset
 
 
-def generate_linear_dependence(dim_x, dim_z, num_mixtures, train_points, test_points):
+def generate_linear_dependence_low_var(dim_x, dim_y, dim_z, num_mixtures, train_points, test_points):
     means = np.random.rand(num_mixtures, dim_z)*5
     variances = np.random.rand(num_mixtures, dim_z)
 
@@ -78,7 +78,63 @@ def generate_linear_dependence(dim_x, dim_z, num_mixtures, train_points, test_po
     file = open(path, 'w')
     pickle.dump(dataset, file)
 
-def generate_polynomial_dependence(dim_x, dim_z, num_mixtures, train_points, test_points, max_degree):
+def generate_linear_dependence_low_label_var(dim_x, dim_y, dim_z, num_mixtures, train_points, test_points):
+    means = np.random.rand(num_mixtures, dim_z)*5
+    variances = np.random.rand(num_mixtures, dim_z)
+
+    # random between -0.5 and 0.5
+    mu_matrix = (np.random.rand(dim_x, dim_z)*10 - 5) / 10
+    z_to_mu_lin = lambda z: np.dot(mu_matrix, z)
+
+    #random between 0 and 0.1
+    var_matrix = np.random.rand(dim_x, dim_z) / 10
+    z_to_var_lin = lambda z: np.dot(var_matrix, z)
+
+    # random between -0.5 and 0.5
+    clus_mu_matrix = (np.random.rand(dim_y, dim_z)*10 - 5) / 10
+    clus_to_mu_lin = lambda z: np.dot(clus_mu_matrix, z)
+
+    #random between 0 and 0.0005
+    clus_var_matrix = np.random.rand(dim_y, dim_z) / 2000
+    clus_to_var_lin = lambda z: np.dot(clus_var_matrix, z)
+
+    dataset = generate_dataset(means, variances, z_to_mu_lin, z_to_var_lin, clus_to_mu_lin, clus_to_var_lin, train_points, test_points)
+    path = 'custom_data/low_label_variance.p'
+    if os.path.isfile(path):
+        os.remove(path)
+
+    file = open(path, 'w')
+    pickle.dump(dataset, file)
+
+def generate_linear_dependence(dim_x, dim_y, dim_z, num_mixtures, train_points, test_points):
+    means = np.random.rand(num_mixtures, dim_z)*5
+    variances = np.random.rand(num_mixtures, dim_z)
+
+    # random between -0.5 and 0.5
+    mu_matrix = (np.random.rand(dim_x, dim_z)*10 - 5) / 10
+    z_to_mu_lin = lambda z: np.dot(mu_matrix, z)
+
+    #random between 0 and 0.1
+    var_matrix = np.random.rand(dim_x, dim_z) / 10
+    z_to_var_lin = lambda z: np.dot(var_matrix, z)
+
+    # random between -0.5 and 0.5
+    clus_mu_matrix = (np.random.rand(dim_y, dim_z)*10 - 5) / 10
+    clus_to_mu_lin = lambda z: np.dot(clus_mu_matrix, z)
+
+    #random between 0 and 0.1
+    clus_var_matrix = np.random.rand(dim_y, dim_z) / 10
+    clus_to_var_lin = lambda z: np.dot(clus_var_matrix, z)
+
+    dataset = generate_dataset(means, variances, z_to_mu_lin, z_to_var_lin, clus_to_mu_lin, clus_to_var_lin, train_points, test_points)
+    path = 'custom_data/linear.p'
+    if os.path.isfile(path):
+        os.remove(path)
+
+    file = open(path, 'w')
+    pickle.dump(dataset, file)
+
+def generate_polynomial_dependence(dim_x, dim_y, dim_z, num_mixtures, train_points, test_points, max_degree):
     means = np.random.rand(num_mixtures, dim_z)*5
     variances = np.random.rand(num_mixtures, dim_z)
 
@@ -126,5 +182,5 @@ def generate_polynomial_dependence(dim_x, dim_z, num_mixtures, train_points, tes
     file = open(path, 'w')
     pickle.dump(dataset, file)
 
-generate_linear_dependence(dim_x, dim_z, 10, 100000, 10000)
+generate_linear_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000)
 # generate_polynomial_dependence(dim_x, dim_z, 10, 100000, 10000, 5)

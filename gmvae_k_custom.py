@@ -11,7 +11,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
 
 # mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-custom_data = pickle.load(open("custom_data/low_variance.p", "rb" ))
+custom_data = pickle.load(open("custom_data/linear.p", "rb" ))
 
 try:
     k = int(sys.argv[1])
@@ -22,10 +22,14 @@ except IndexError:
 def mean_squared_error(labels, predictions):
     return tf.reduce_mean(tf.squared_difference(labels, predictions))
 
+
 def labeled_loss(xr, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior, l, l_predict):
-    xy_loss = -log_normal(xr, x_reconstruct, xv) / 5
-    # xy_loss += mean_squared_error(l, l_predict)
-    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
+    with tf.name_scope('reconstruction_loss'):
+        reconstruction_loss = -log_normal(xr*100, x_reconstruct*100, xv*100**2) / 5
+    with tf.name_scope('divergence_loss'):
+        divergence_loss = (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
+    xy_loss = reconstruction_loss
+    xy_loss += divergence_loss
     return xy_loss - np.log(0.1)
 
 def px_graph(z, y):
@@ -75,13 +79,16 @@ with tf.name_scope('loss'):
     with tf.name_scope('neg_entropy'):
         nent = -cross_entropy_with_logits(qy_logit, qy)
     losses = [None] * k
+    label_losses = [None] * k
     for i in xrange(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
             losses[i] = labeled_loss(xr, x_reconstruct[i], xv[i], z[i], zm[i], zv[i], zm_prior[i], zv_prior[i], l, l_predict[i])
+        with tf.name_scope('label_loss_at{:d}'.format(i)):
+            label_losses[i] = mean_squared_error(l, l_predict[i])
+    with tf.name_scope('label_loss'):
+        label_loss = tf.add_n([qy[:, i] * label_losses[i] for i in xrange(k)])
     with tf.name_scope('final_loss'):
-        loss = tf.add_n([nent] + [qy[:, i] * losses[i] for i in xrange(k)])
-    # with tf.name_scope('label_loss'):
-    #     lab_loss = mean_squared_error(l, l_predict[tf.argmax(qy)])
+        loss = tf.add_n([nent, label_loss] + [qy[:, i] * losses[i] for i in xrange(k)])
 
 train_step = tf.train.AdamOptimizer().minimize(loss)
 sess = tf.Session()
