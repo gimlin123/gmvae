@@ -41,3 +41,17 @@ def labeled_loss(x, px_logit, z, zm, zv, zm_prior, zv_prior):
     xy_loss = -log_bernoulli_with_logits(x, px_logit)
     xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
     return xy_loss - np.log(0.1)
+
+def labeled_loss_real(x, px_logit, xv, z, zm, zv, zm_prior, zv_prior):
+    xy_loss = -log_normal(x, tf.sigmoid(px_logit), tf.clip_by_value(xv, 0.1, 1))
+    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
+    return xy_loss - np.log(0.1)
+
+def triplet_loss(z, qy, k):
+    alpha = 0.2
+    z_normalized = tf.nn.l2_normalize(z, 2)
+    a, p, n = tf.split(1, 3, z_normalized)
+    a_qy, p_qy, n_qy = tf.split(0, 3, qy)
+
+    return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - tf.multiply(a[i], p[j])), axis=1)
+      for i in xrange(k) for j in xrange(k) for z in xrange(k)])
