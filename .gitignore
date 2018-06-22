@@ -32,6 +32,7 @@ logs/
 generated_images/
 *.ini
 *.npy
+bin/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
