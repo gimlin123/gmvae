@@ -17,13 +17,13 @@ config = config['gmvae_k']
 formatted_triplets = None
 if config.getboolean('triplet_loss'):
     formatted_triplets = np.load(open(config['triplet_path'], 'r'))
-    print formatted_triplets.shape
+    # print(formatted_triplets.shape)
 
 if config['data'] == 'mnist':
     data = input_data.read_data_sets("MNIST_data/", one_hot=True)
 else:
     data = pickle.load(open(config['data'], "rb" ))
-    print data['train']['data'].shape
+    # print(data['train']['data'].shape)
     if config.getboolean('normalize_data'):
         scaler = StandardScaler()
         data['train']['data'] = scaler.fit_transform(data['train']['data'])
@@ -101,8 +101,8 @@ with tf.name_scope('x_used'):
 qy_logit, qy = qy_graph(xu, k)
 
 # for each proposed y, infer z and reconstruct x
-z, zm, zv, zm_prior, zv_prior, px_logit, xv = [[None] * k for i in xrange(7)]
-for i in xrange(k):
+z, zm, zv, zm_prior, zv_prior, px_logit, xv = [[None] * k for i in range(7)]
+for i in range(k):
     with tf.name_scope('graphs/hot_at{:d}'.format(i)):
         y = tf.add(y_, Constant(np.eye(k)[i], name='hot_at_{:d}'.format(i)))
         z[i], zm[i], zv[i] = qz_graph(xu, y)
@@ -113,7 +113,7 @@ with tf.name_scope('loss'):
     with tf.name_scope('neg_entropy'):
         nent = -cross_entropy_with_logits(qy_logit, qy)
     losses = [None] * k
-    for i in xrange(k):
+    for i in range(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
             if config['data'] == 'mnist':
                 if config['data_type'] == 'binary':
@@ -126,7 +126,7 @@ with tf.name_scope('loss'):
     with tf.name_scope('triplet_loss'):
         trip_loss = triplet_loss(z, qy, k)
     with tf.name_scope('final_loss'):
-        loss = tf.add_n([nent] + [qy[:, i] * losses[i] for i in xrange(k)])
+        loss = tf.add_n([nent] + [qy[:, i] * losses[i] for i in range(k)])
     with tf.name_scope('final_triplet_loss'):
         final_trip_loss = loss[::3] + loss[1::3] + loss[2::3] + trip_loss * float(config['tl_lambda'])
 
