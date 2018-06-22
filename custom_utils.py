@@ -82,6 +82,6 @@ def train_custom(fname, custom_data, sess_info, epochs, formatted_triplets):
                       .format('tr_ent', 'tr_loss', 't_ent', 't_loss', 't_acc', 'epoch'))
             stream_print(f, string, i <= iterep)
             string = ('{:10.2e},{:10.2e},{:10.2e},{:10.2e},{:10.2e},{:10d}'
-                      .format(a, b, c, d, e, (i + 1) / iterep))
+                      .format(a, b, c, d, e, int((i + 1) / iterep)))
             stream_print(f, string)
     if f is not None: f.close()
