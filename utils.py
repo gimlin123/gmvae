@@ -10,19 +10,19 @@ config.read('gmvae.ini')
 config = config['gmvae_k']
 
 def stream_print(f, string, pipe_to_file=True):
-    print string
+    print(string)
     if pipe_to_file and f is not None:
         f.write(string + '\n')
         f.flush()
 
 def test_acc(mnist, sess, qy_logit):
-    # print '==============='
-    # print mnist.test.labels.shape
-    # print mnist.test.labels.argmax(1).shape
+    # print('===============')
+    # print(mnist.test.labels.shape)
+    # print(mnist.test.labels.argmax(1).shape)
     logits = sess.run(qy_logit, feed_dict={'x:0': mnist.test.images})
     cat_pred = logits.argmax(1)
     real_pred = np.zeros_like(cat_pred)
-    for cat in xrange(logits.shape[1]):
+    for cat in range(logits.shape[1]):
         idx = cat_pred == cat
         lab = mnist.test.labels.argmax(1)[idx]
         if len(lab) == 0:
@@ -42,7 +42,7 @@ def open_file(fname):
 def create_image_m(images, m, epoch, mnist, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': mnist.test.images})
     cat_pred = logits.argmax(1)
-    for cat in xrange(logits.shape[1]):
+    for cat in range(logits.shape[1]):
         idx = cat_pred == cat
         lab = mnist.test.labels.argmax(1)[idx]
         if len(lab) == 0:
@@ -56,7 +56,7 @@ def create_image_m(images, m, epoch, mnist, sess, qy_logit):
 def create_mean_image(mean_image, epoch, mnist, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': mnist.test.images})
     cat_pred = logits.argmax(1)
-    for cat in xrange(logits.shape[1]):
+    for cat in range(logits.shape[1]):
         idx = cat_pred == cat
         lab = mnist.test.labels.argmax(1)[idx]
         if len(lab) == 0:
@@ -77,7 +77,7 @@ def train(fname, mnist, sess_info, epochs):
         mnist.test.images[test_images_cats] *= float(config['mnist_scaling_factor'])
 
     (sess, qy_logit, nent, loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image) = sess_info
-    # print sess.run(generate_mean_image(0, 10))
+    # print(sess.run(generate_mean_image(0, 10)))
     f = open_file(fname)
     iterep = 500
     tripep = int(config['tl_interleave_epoch'])
@@ -91,7 +91,7 @@ def train(fname, mnist, sess_info, epochs):
                 for iter in range(len(formatted_triplets)):
                     _, a = sess.run([triplet_step, trip_loss], feed_dict={'x:0': formatted_triplets[iter]})
                     # if (iter + 1) % tripepshow == 0:
-                    #     print a.mean()
+                    #     print(a.mean())
         if (i + 1) % iterep == 0:
             a, b = sess.run([nent, loss], feed_dict={'x:0': mnist.train.images[np.random.choice(50000, 10000)]})
             c, d = sess.run([nent, loss], feed_dict={'x:0': mnist.test.images})

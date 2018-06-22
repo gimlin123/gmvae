@@ -66,8 +66,8 @@ with tf.name_scope('y_'):
 qy_logit, qy = qy_graph(xr, k)
 
 # for each proposed y, infer z and reconstruct x and l
-z, zm, zv, zm_prior, zv_prior, x_reconstruct, l_predict, xv = [[None] * k for i in xrange(8)]
-for i in xrange(k):
+z, zm, zv, zm_prior, zv_prior, x_reconstruct, l_predict, xv = [[None] * k for i in range(8)]
+for i in range(k):
     with tf.name_scope('graphs/hot_at{:d}'.format(i)):
         y = tf.add(y_, Constant(np.eye(k)[i], name='hot_at_{:d}'.format(i)))
         z[i], zm[i], zv[i] = qz_graph(xr, y)
@@ -80,15 +80,15 @@ with tf.name_scope('loss'):
         nent = -cross_entropy_with_logits(qy_logit, qy)
     losses = [None] * k
     label_losses = [None] * k
-    for i in xrange(k):
+    for i in range(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
             losses[i] = labeled_loss(xr, x_reconstruct[i], xv[i], z[i], zm[i], zv[i], zm_prior[i], zv_prior[i], l, l_predict[i])
         with tf.name_scope('label_loss_at{:d}'.format(i)):
             label_losses[i] = mean_squared_error(l, l_predict[i])
     with tf.name_scope('label_loss'):
-        label_loss = tf.add_n([qy[:, i] * label_losses[i] for i in xrange(k)])
+        label_loss = tf.add_n([qy[:, i] * label_losses[i] for i in range(k)])
     with tf.name_scope('final_loss'):
-        loss = tf.add_n([nent, label_loss] + [qy[:, i] * losses[i] for i in xrange(k)])
+        loss = tf.add_n([nent, label_loss] + [qy[:, i] * losses[i] for i in range(k)])
 
 train_step = tf.train.AdamOptimizer().minimize(loss)
 sess = tf.Session()

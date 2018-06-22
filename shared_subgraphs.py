@@ -64,4 +64,4 @@ def triplet_loss(z, qy, k):
     a_qy, p_qy, n_qy = tf.split(0, 3, qy)
 
     return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - tf.multiply(a[i], p[j])), axis=1)
-      for i in xrange(k) for j in xrange(k) for z in xrange(k)])
+      for i in range(k) for j in range(k) for z in range(k)])

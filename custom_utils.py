@@ -10,7 +10,7 @@ config.read('gmvae.ini')
 config = config['gmvae_k']
 
 def stream_print(f, string, pipe_to_file=True):
-    print string
+    print(string)
     if pipe_to_file and f is not None:
         f.write(string + '\n')
         f.flush()
@@ -19,10 +19,10 @@ def test_acc(custom_data, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
     cat_pred = logits.argmax(1)
     real_pred = np.zeros_like(cat_pred)
-    for cat in xrange(logits.shape[1]):
+    for cat in range(logits.shape[1]):
         idx = cat_pred == cat
         test_num = sum(custom_data['test']['clusters'] == cat)
-        print 'for cluster %d, there are %d guesses while there are %d actual points' % (cat, sum(idx), test_num)
+        print('for cluster %d, there are %d guesses while there are %d actual points' % (cat, sum(idx), test_num))
         lab = custom_data['test']['clusters'][idx]
         if len(lab) == 0:
             continue
@@ -53,7 +53,7 @@ def train_custom(fname, custom_data, sess_info, epochs, formatted_triplets):
         mnist.test.images[test_images_cats] *= float(config['mnist_scaling_factor'])
 
     (sess, qy_logit, nent, loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image, xdata) = sess_info
-    # print sess.run(generate_mean_image(0, 10))
+    # print(sess.run(generate_mean_image(0, 10)))
     f = open_file(fname)
     iterep = 500
     tripep = int(config['tl_interleave_epoch'])
@@ -69,13 +69,13 @@ def train_custom(fname, custom_data, sess_info, epochs, formatted_triplets):
                 for iter in range(len(formatted_triplets)):
                     _, a = sess.run([triplet_step, trip_loss], feed_dict={'x:0': formatted_triplets[iter]})
                     # if (iter + 1) % tripepshow == 0:
-                    #     print a.mean()
+                    #     print(a.mean())
 
         if (i + 1) %  iterep == 0:
             random_choices = np.random.choice(50000, 10000)
             a, b = sess.run([nent, loss], feed_dict={'x:0': custom_data['train']['data'][random_choices], 'l:0': custom_data['train']['labels'][random_choices]})
             c, d, x_dat = sess.run([nent, loss, xdata], feed_dict={'x:0': custom_data['test']['data'], 'l:0': custom_data['test']['labels']})
-            print x_dat
+            # print(x_dat)
             a, b, c, d = -a.mean(), b.mean(), -c.mean(), d.mean()
             e = test_acc(custom_data, sess, qy_logit)
             string = ('{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s}'
