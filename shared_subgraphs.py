@@ -2,6 +2,11 @@ import tensorflow as tf
 from tensorbayes import Constant, Placeholder, Dense, GaussianSample, log_bernoulli_with_logits, log_normal, cross_entropy_with_logits
 import numpy as np
 import sys
+import configparser
+
+config = configparser.ConfigParser()
+config.read('gmvae.ini')
+config = config['gmvae_k']
 
 # vae subgraphs
 def qy_graph(x, k=10):
@@ -38,17 +43,22 @@ def ql_graph(y):
     return l
 
 def labeled_loss(x, px_logit, z, zm, zv, zm_prior, zv_prior):
-    xy_loss = -log_bernoulli_with_logits(x, px_logit)
-    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
+    xy_loss = (-log_bernoulli_with_logits(x, px_logit)) * float(config['reconstruct_loss_lambda'])
+    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior)) * float(config['kl_loss_lambda'])
     return xy_loss - np.log(0.1)
 
 def labeled_loss_real(x, px_logit, xv, z, zm, zv, zm_prior, zv_prior):
-    xy_loss = -log_normal(x, tf.sigmoid(px_logit), tf.clip_by_value(xv, 0.1, 1))
-    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior))
+    xy_loss = (-log_normal(x, tf.sigmoid(px_logit), tf.clip_by_value(xv, 0.1, 1))) * float(config['reconstruct_loss_lambda'])
+    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior)) * float(config['kl_loss_lambda'])
+    return xy_loss - np.log(0.1)
+
+def labeled_loss_custom(x, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior):
+    xy_loss = (-log_normal(x, x_reconstruct, tf.clip_by_value(xv, 0.1, 1))) * float(config['reconstruct_loss_lambda'])
+    xy_loss += (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior)) * float(config['kl_loss_lambda'])
     return xy_loss - np.log(0.1)
 
 def triplet_loss(z, qy, k):
-    alpha = 0.2
+    alpha = float(config['tl_margin'])
     z_normalized = tf.nn.l2_normalize(z, 2)
     a, p, n = tf.split(1, 3, z_normalized)
     a_qy, p_qy, n_qy = tf.split(0, 3, qy)
