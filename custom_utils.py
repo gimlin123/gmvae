@@ -36,7 +36,7 @@ def open_file(fname):
         i = 0
         while os.path.isfile('{:s}.{:d}'.format(fname, i)):
             i += 1
-        return open('{:s}.{:d}'.format(fname, i), 'wb', 0)
+        return open('{:s}.{:d}'.format(fname, i), 'w', 0)
 
 def next_batch(data, num_points, index):
     index = index % len(data)
