@@ -10,7 +10,7 @@ config['gmvae_k'] = {
     'kl_loss_lambda' : '1',
     'reconstruct_loss_lambda': '1',
 
-    'triplet_loss': 'yes',
+    'triplet_loss': 'no',
     'triplet_path': 'triplets_custom.npy',
     'tl_margin': '0.2',
     'tl_interleave_epoch': '250',
