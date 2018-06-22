@@ -131,7 +131,7 @@ def generate_linear_dependence(dim_x, dim_y, dim_z, num_mixtures, train_points, 
     if os.path.isfile(path):
         os.remove(path)
 
-    file = open(path, 'w')
+    file = open(path, 'wb')
     pickle.dump(dataset, file)
 
 def generate_polynomial_dependence(dim_x, dim_y, dim_z, num_mixtures, train_points, test_points, max_degree):
@@ -179,7 +179,7 @@ def generate_polynomial_dependence(dim_x, dim_y, dim_z, num_mixtures, train_poin
     if os.path.isfile(path):
         os.remove(path)
 
-    file = open(path, 'w')
+    file = open(path, 'wb')
     pickle.dump(dataset, file)
 
 def generate_mnist_cats():
@@ -329,7 +329,7 @@ def format_triplets(images, triplets, batches):
 # generate_mnist_cats()
 # generating triplets
 #=======================================================
-# batches = 50
+batches = 50
 # images, triplets = generate_random_triplets(5000)
 # formatted_triplets = format_triplets(images, triplets, batches)
 # np.save(open("triplets.npy", "wb"), formatted_triplets)
@@ -338,11 +338,11 @@ def format_triplets(images, triplets, batches):
 # formatted_triplets = format_triplets(images, triplets, batches)
 # np.save(open("triplets_modified.npy", "wb"), formatted_triplets)
 
-# custom_data = pickle.load(open("custom_data/polynomial.p", "rb" ))
-# images, triplets = generate_random_triplets_custom(5000, custom_data['train'])
-# formatted_triplets = format_triplets(images, triplets, batches)
-# np.save(open('triplets_custom.npy', 'wb'), formatted_triplets)
+custom_data = pickle.load(open("custom_data/polynomial.p", "rb" ))
+images, triplets = generate_random_triplets_custom(5000, custom_data['train'])
+formatted_triplets = format_triplets(images, triplets, batches)
+np.save(open('triplets_custom.npy', 'wb'), formatted_triplets)
 #=======================================================
 
 # generate_linear_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000)
-# generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)
+#generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)
