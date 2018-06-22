@@ -37,7 +37,7 @@ def open_file(fname):
         i = 0
         while os.path.isfile('{:s}.{:d}'.format(fname, i)):
             i += 1
-        return open('{:s}.{:d}'.format(fname, i), 'w', 0)
+        return open('{:s}.{:d}'.format(fname, i), 'w')
 
 def create_image_m(images, m, epoch, mnist, sess, qy_logit):
     logits = sess.run(qy_logit, feed_dict={'x:0': mnist.test.images})
