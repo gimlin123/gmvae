@@ -62,7 +62,7 @@ def progbar(i, iter_per_epoch, message='', bar_length=50, display=True):
     end_epoch = j == iter_per_epoch
     if display:
         perc = int(100. * j / iter_per_epoch)
-        prog = ''.join(['='] * (bar_length * perc / 100))
+        prog = ''.join(['='] * int(bar_length * perc / 100))
         template = "\r[{:" + str(bar_length) + "s}] {:3d}%. {:s}"
         string = template.format(prog, perc, message)
         sys.stdout.write(string)
