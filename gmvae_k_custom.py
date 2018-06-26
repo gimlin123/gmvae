@@ -60,7 +60,7 @@ with tf.name_scope('x_reducedv'):
     xr = x / 100.
 #create a y "placeholder"
 with tf.name_scope('y_'):
-    y_ = tf.fill(tf.pack([tf.shape(x)[0], k]), 0.0)
+    y_ = tf.fill(tf.stack([tf.shape(x)[0], k]), 0.0)
 
 # propose distribution over y
 qy_logit, qy = qy_graph(xr, k)

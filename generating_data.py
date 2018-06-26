@@ -141,14 +141,14 @@ def generate_polynomial_dependence(dim_x, dim_y, dim_z, num_mixtures, train_poin
     # random between -2 and 2
     z_to_mu_matrices = [np.random.rand(dim_x, dim_z)*4 - 2 for i in range(max_degree)]
 
-    #random between 0 and 0.333
-    z_to_var_matrices = [np.random.rand(dim_x, dim_z) / 3 for i in range(max_degree)]
+    #random between 1 and 2
+    z_to_var_matrices = [np.random.rand(dim_x, dim_z)*0.5 + 0.5 for i in range(max_degree)]
 
     # random between -2 and 2
     clus_to_mu_matrices = [np.random.rand(dim_y, dim_z)*4 - 2 for i in range(max_degree)]
 
-    #random between 0 and 0.333
-    clus_to_var_matrices = [np.random.rand(dim_y, dim_z) / 3 for i in range(max_degree)]
+    #random between 1 and 2
+    clus_to_var_matrices = [np.random.rand(dim_y, dim_z)*0.5 + 0.5 for i in range(max_degree)]
 
     def z_to_mu_poly(z):
         sum = np.zeros(dim_x)
@@ -326,6 +326,9 @@ def format_triplets(images, triplets, batches):
 
     return np.concatenate((a_images_split, p_images_split, n_images_split), axis=1)
 
+# generate_linear_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000)
+generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)
+
 # generate_mnist_cats()
 # generating triplets
 #=======================================================
@@ -343,6 +346,3 @@ images, triplets = generate_random_triplets_custom(5000, custom_data['train'])
 formatted_triplets = format_triplets(images, triplets, batches)
 np.save(open('triplets_custom.npy', 'wb'), formatted_triplets)
 #=======================================================
-
-# generate_linear_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000)
-#generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)

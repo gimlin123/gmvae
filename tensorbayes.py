@@ -48,7 +48,7 @@ def log_bernoulli_with_logits(x, logits, eps=0.0, axis=-1):
         logits = tf.clip_by_value(logits, -max_val, max_val,
                                   name='clipped_logit')
     return -tf.reduce_sum(
-        tf.nn.sigmoid_cross_entropy_with_logits(logits, x), axis)
+        tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=x), axis)
 
 def log_normal(x, mu, var, eps=0.0, axis=-1):
     if eps > 0.0:

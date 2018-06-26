@@ -23,7 +23,7 @@ def qz_graph(x, y):
     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qz')) > 0
     # -- q(z)
     with tf.variable_scope('qz'):
-        xy = tf.concat(1, (x, y), name='xy/concat')
+        xy = tf.concat((x, y), 1, name='xy/concat')
         h1 = Dense(xy, 512, 'layer1', tf.nn.relu, reuse=reuse)
         h2 = Dense(h1, 512, 'layer2', tf.nn.relu, reuse=reuse)
         zm = Dense(h2, 64, 'zm', reuse=reuse)
@@ -60,8 +60,8 @@ def labeled_loss_custom(x, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior):
 def triplet_loss(z, qy, k):
     alpha = float(config['tl_margin'])
     z_normalized = tf.nn.l2_normalize(z, 2)
-    a, p, n = tf.split(1, 3, z_normalized)
-    a_qy, p_qy, n_qy = tf.split(0, 3, qy)
+    a, p, n = tf.split(z_normalized, 3, axis=1)
+    a_qy, p_qy, n_qy = tf.split(qy, 3, axis=0)
 
     return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - tf.multiply(a[i], p[j])), axis=1)
       for i in range(k) for j in range(k) for z in range(k)])

@@ -40,25 +40,25 @@ except IndexError:
                     'e.g. python gmvae_k.py 10')
 
 def generate_n_images(clus, k, n):
-    y = tf.fill(tf.pack([1, k]), 0.0)
+    y = tf.fill(tf.stack([1, k]), 0.0)
     y = tf.add(y, Constant(np.eye(k)[clus]))
 
-    z_dummy = tf.fill(tf.pack([1, 64]), 0.0)
+    z_dummy = tf.fill(tf.stack([1, 64]), 0.0)
     zm, zv, _, __ = px_graph(z_dummy, y)
 
     z = GaussianSample(zm, zv, 'z')
     for i in range(n-1):
-        z = tf.concat(0, [z, GaussianSample(zm, zv, 'z' + str(i))])
+        z = tf.concat([z, GaussianSample(zm, zv, 'z' + str(i))], 0)
 
     _, __, x_reconstruct, ___ = px_graph(z, y)
     x_reconstruct_b = tf.cast(tf.greater(x_reconstruct, tf.zeros(tf.shape(x_reconstruct))), tf.uint8) * 255
     return x_reconstruct_b
 
 def generate_mean_image(clus, k):
-    y = tf.fill(tf.pack([1, k]), 0.0)
+    y = tf.fill(tf.stack([1, k]), 0.0)
     y = tf.add(y, Constant(np.eye(k)[clus]))
 
-    z_dummy = tf.fill(tf.pack([1, 64]), 0.0)
+    z_dummy = tf.fill(tf.stack([1, 64]), 0.0)
     zm, zv, _, __ = px_graph(z_dummy, y)
 
     _, __, x_reconstruct, ___ = px_graph(zm, y)
@@ -91,7 +91,7 @@ l = Placeholder((None, None), name='l')
 with tf.name_scope('x_binarized'):
     xb = tf.cast(tf.greater(x, tf.random_uniform(tf.shape(x), 0, 1)), tf.float32)
 with tf.name_scope('y_'):
-    y_ = tf.fill(tf.pack([tf.shape(x)[0], k]), 0.0)
+    y_ = tf.fill(tf.stack([tf.shape(x)[0], k]), 0.0)
 with tf.name_scope('x_used'):
     if config['data_type'] == 'binary':
         xu = xb
@@ -138,6 +138,18 @@ sess.run(tf.global_variables_initializer()) # Change initialization protocol dep
 sess_info = (sess, qy_logit, nent, loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image, xu)
 
 if config['data'] == 'mnist':
-    train('logs/gmvae_k={:d}.log'.format(k), data, sess_info, 1000, formatted_triplets)
+    if config.getboolean('triplet_loss'):
+        dirname = '/'.join(['logs', 'mnist', config['data_type'], 'triplet', 'kl%s_r%s_tm%s_ti%s_tl%s' % (config['kl_loss_lambda'],
+            config['reconstruct_loss_lambda'], config['tl_margin'], config['tl_interleave_epoch'], config['tl_lambda'])])
+    else:
+        dirname = '/'.join(['logs', 'mnist', config['data_type'], 'no-triplet', 'kl%s_r%s.log' % (config['kl_loss_lambda'], config['reconstruct_loss_lambda'])])
+
 else:
-    train_custom('logs/custom_gmvae_k={:d}.log'.format(k), data, sess_info, 1000, formatted_triplets)
+    datafile = config['data'].split('.')[0]
+    if config.getboolean('triplet_loss'):
+        dirname = '/'.join(['logs', 'other', 'triplet', '%s_kl%s_r%s_tm%s_ti%s_tl%s.log' % (datafile, config['kl_loss_lambda'],
+            config['reconstruct_loss_lambda'], config['tl_margin'], config['tl_interleave_epoch'], config['tl_lambda'])])
+    else:
+        dirname = '/'.join(['logs', 'other', 'no-triplet', '%s_kl%s_r%s.log' % (datafile, config['kl_loss_lambda'], config['reconstruct_loss_lambda'])])
+
+train(dirname, data, sess_info, 10)
