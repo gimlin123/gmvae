@@ -4,6 +4,8 @@ import numpy as np
 import os.path
 import configparser
 from sklearn.preprocessing import StandardScaler
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 config = configparser.ConfigParser()

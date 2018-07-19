@@ -7,6 +7,11 @@ from IPython.display import clear_output, Image, display, HTML
 import os
 import sys
 import time
+import configparser
+
+config = configparser.ConfigParser()
+config.read('gmvae.ini')
+config = config['gmvae_k']
 
 def Constant(value, dtype='float32', name=None):
     return tf.constant(value, dtype, name=name)
@@ -32,7 +37,7 @@ def Dense(x,
 
         # dense layer
         weights = tf.get_variable('weights', weights_shape,
-                                  initializer=xavier_initializer())
+                                  initializer=xavier_initializer()) / float(config['var_downscale'])
         biases = tf.get_variable('biases', [num_outputs],
                                  initializer=tf.zeros_initializer)
         output = tf.matmul(x, weights) + biases
@@ -41,6 +46,51 @@ def Dense(x,
         if post_bn: output = batch_norm(output, phase, scope='post_bn')
 
     return output
+
+def conv2d(input_,
+           output_dim,
+           scope=None,
+           activation=None,
+           reuse=None,
+           k_h=5,
+           k_w=5,
+           d_h=2,
+           d_w=2):
+    
+    with tf.variable_scope(scope, "conv2d", reuse=reuse):
+        w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
+                  initializer=xavier_initializer()) / float(config['conv_var_downscale'])
+        conv = tf.nn.conv2d(input_, w, strides=[1, d_h, d_w, 1], padding='SAME')
+
+        biases = tf.get_variable('biases', [output_dim], initializer=tf.constant_initializer(0.0))
+        conv_shape = conv.get_shape().as_list()
+        conv_shape[0] = -1
+        conv = tf.reshape(tf.nn.bias_add(conv, biases), conv_shape)
+        if activation: conv = activation(conv)
+    return conv
+
+def deconv2d(input_,
+             output_shape,
+             scope=None,
+             activation=None,
+             reuse=None,
+             k_h=5,
+             k_w=5,
+             d_h=2, 
+             d_w=2):
+    with tf.variable_scope(scope, "conv2d", reuse=reuse):
+        # filter : [height, width, output_channels, in_channels]
+        w = tf.get_variable('w', [k_h, k_w, output_shape[-1], input_.get_shape()[-1]],
+                  initializer=xavier_initializer()) / float(config['conv_var_downscale'])
+        
+        deconv = tf.nn.conv2d_transpose(input_, w, output_shape=output_shape,
+                strides=[1, d_h, d_w, 1])
+        biases = tf.get_variable('biases', [output_shape[-1]], initializer=tf.constant_initializer(0.0))
+        deconv_shape = deconv.get_shape().as_list()
+        deconv_shape[0] = -1
+        deconv = tf.reshape(tf.nn.bias_add(deconv, biases), deconv_shape)
+        if activation: deconv = activation(deconv)
+    return deconv
 
 def log_bernoulli_with_logits(x, logits, eps=0.0, axis=-1):
     if eps > 0.0:
