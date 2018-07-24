@@ -63,10 +63,13 @@ def get_clusters(asins, features, sess, qy_logit, eval_samp_size, eval_samp_num,
             cat_asins = asins_rand[idx]
             if len(cat_asins) == 0:
                 continue
+            if cat not in pred_dict:
+                pred_dict[cat] = [[], []]
             if not(len(labels)):
-                pred_dict[cat] = (cat_asins,)
+                pred_dict[cat][0] = np.concatenate([pred_dict[cat][0], cat_asins])
             else:
-                pred_dict[cat] = (cat_asins, test_labels_rand[idx])
+                pred_dict[cat][0] = np.concatenate([pred_dict[cat][0], cat_asins])
+                pred_dict[cat][1] = np.concatenate([pred_dict[cat][0], test_labels_rand[idx]])
     return pred_dict
 
 def open_file(dirname):
@@ -116,29 +119,69 @@ def next_batch(data, num_points, index):
 
     return np.concatenate((data[index : ], data[ : index + num_points - len(data)]))
 
+def get_tl_features(data, asin_dict):
+    if asin_dict:
+        return np.array([asin_dict[asin] for asin in data])
+    return data
+
 def train_amazon(dirname, asins, test_asins, train_features, test_features, sess_info, epochs, labels=None, k=6):
+    asin_dict = {}
+    if config.getboolean('tl_need_features'):
+        tl_asins = np.load(config['tl_asin_path'], encoding='latin1')
+        tl_features = np.load(config['tl_feature_path'])
+        asin_dict = {}
+
+        for i in range(len(tl_asins)):
+            asin_dict[tl_asins[i]] = tl_features[i]
+            
+        del tl_asins
+        del tl_features
+            
+    formatted_triplets = np.load(config['triplet_path'], encoding='latin1')
+    
     (sess, qy_logit, nent, loss, reconstruct_loss, kl_loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image, xdata) = sess_info
     f, dirnum = open_file(dirname)
-    iterep = 1000
+    iterep = 100
     index = 0
     batch_size = 32
     eval_samp_size = 32
-    eval_samp_num = 100
+    eval_samp_num = 30
     image_base = dirname + ''
+    
+    tripep = int(config['tl_interleave_epoch'])
+    tripepshow = 20
+    start_tri = 0
+    tl_index = 0
+    tl_num_batches = 20
+    
     for i in range(iterep * epochs):
         progbar(i, iterep)
         sess.run(train_step, feed_dict={'x:0': next_batch(train_features, batch_size, index)})
         index += batch_size
+        if config.getboolean('triplet_loss'):
+            if (i / iterep) > start_tri and (i + 1) % tripep == 0:
+                for iter in range(tl_num_batches):
+                    features = get_tl_features(formatted_triplets[tl_index], asin_dict)
+                    if config.getboolean('normalize_data'):
+                        features = (features / 127.5) - 1
+                    _, a = sess.run([triplet_step, trip_loss], feed_dict={'x:0': features})
+                    tl_index = (tl_index + 1) % len(formatted_triplets)
+                    del features
+#                     if (iter + 1) % tripepshow == 0:
+#                         print(a.mean())
         if (i+1) % iterep == 0:
-            a, b, g, h, c, d, j, l, e = [[]] * 9
+#             print('xdata')
+
+            a, b, g, h, c, d, j, l, e = [[], [], [], [], [], [], [], [], []]
             if not os.path.exists('%s.%d/epoch_%d' % (dirname, dirnum, int((i+1) / iterep))):
                 os.makedirs('%s.%d/epoch_%d' % (dirname, dirnum, int((i+1) / iterep)))
             for eval_iter in range(eval_samp_num):
-                train_vals = sess.run([nent, loss, reconstruct_loss, kl_loss], feed_dict={'x:0': train_features[np.random.choice(len(train_features), eval_samp_size)]})
+                train_vals = sess.run([nent, loss, reconstruct_loss, kl_loss, xdata], feed_dict={'x:0': train_features[np.random.choice(len(train_features), eval_samp_size)]})
                 a.append(train_vals[0])
                 b.append(train_vals[1])
                 g.append(train_vals[2])
                 h.append(train_vals[3])
+#                 print(train_vals[4])
                 test_vals = sess.run([nent, loss, reconstruct_loss, kl_loss], feed_dict={'x:0': test_features[np.random.choice(len(test_features), eval_samp_size)]})
                 c.append(test_vals[0])
                 d.append(test_vals[1])
@@ -149,14 +192,14 @@ def train_amazon(dirname, asins, test_asins, train_features, test_features, sess
             if not len(labels):
                 clusters = get_clusters(test_asins, test_features, sess, qy_logit, eval_samp_size, eval_samp_num)
             else:
-                clusters = get_clusters(test_asins, test_features, sess, qy_logit, eval_samp_size, labels, eval_samp_num, k)
+                clusters = get_clusters(test_asins, test_features, sess, qy_logit, eval_samp_size, eval_samp_num, labels, k)
             for clus in clusters:
                 if not os.path.exists('%s.%d/epoch_%d/clus_%d' % (dirname, dirnum, int((i+1) / iterep), clus)):
                     os.makedirs('%s.%d/epoch_%d/clus_%d' % (dirname, dirnum, int((i+1) / iterep), clus))
                 random_indices = np.random.choice(len(clusters[clus][0]), min(int(config['image_sample_cluster']), len(clusters[clus][0])))
-                retrieve_asins = clusters[clus][0][random_indices]
+                retrieve_asins = np.array(clusters[clus][0])[random_indices]
                 if len(labels):
-                    retrieve_cats = clusters[clus][1][random_indices]
+                    retrieve_cats = np.array(clusters[clus][1])[random_indices]
                 for ind in range(len(retrieve_asins)):
                     asin = retrieve_asins[ind]
 #                     first_4 = asin[:4]
@@ -171,11 +214,10 @@ def train_amazon(dirname, asins, test_asins, train_features, test_features, sess
                             copyfile('%s%s.jpg' % (config['image_path'], asin), '%s.%d/epoch_%d/clus_%d/%s.jpg' % (dirname, dirnum, int((i+1) / iterep), clus, asin))
                     else:
                         cat = np.array(['cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6'])[int(retrieve_cats[ind])]
-                        print('%s%s/%s.jpg' % (config['image_path'], cat, asin))
                         if os.path.exists('%s%s/%s.jpg' % (config['image_path'], cat, asin)):
                             copyfile('%s%s/%s.jpg' % (config['image_path'], cat, asin), '%s.%d/epoch_%d/clus_%d/%s.jpg' % (dirname, dirnum, int((i+1) / iterep), clus, asin))
-            a, b, c, d, g, h, j, l = np.mean(a, 0),np.mean(b, 0),np.mean(c, 0),np.mean(d, 0),np.mean(g, 0),np.mean(h, 0),np.mean(j, 0),np.mean(l, 0)
-            a, b, c, d, g, h, j, l= -a.mean(), b.mean(), -c.mean(), d.mean(), g.mean(), h.mean(), j.mean(), l.mean()
+            a, b, c, d, g, h, j, l, e = np.mean(a, 0),np.mean(b, 0),np.mean(c, 0),np.mean(d, 0),np.mean(g, 0),np.mean(h, 0),np.mean(j, 0),np.mean(l, 0),np.mean(e)
+            a, b, c, d, g, h, j, l = -a.mean(), b.mean(), -c.mean(), d.mean(), g.mean(), h.mean(), j.mean(), l.mean()
             if not(len(labels)):
                 string = ('{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s},{:>10s}'
                       .format('tr_ent', 'tr_loss', 'tr_rloss', 'tr_klloss', 't_ent', 't_loss', 't_rloss', 't_klloss', 'epoch'))
@@ -215,8 +257,8 @@ def train(dirname, mnist, sess_info, epochs):
             if (i / iterep) > start_tri and (i + 1) % tripep == 0:
                 for iter in range(len(formatted_triplets)):
                     _, a = sess.run([triplet_step, trip_loss], feed_dict={'x:0': formatted_triplets[iter]})
-                    if (iter + 1) % tripepshow == 0:
-                        print(a.mean())
+#                     if (iter + 1) % tripepshow == 0:
+#                         print(a.mean())
         if i % iterep == 0:
             a, b = sess.run([nent, loss], feed_dict={'x:0': mnist.train.images[np.random.choice(50000, 10000)]})
             c, d = sess.run([nent, loss], feed_dict={'x:0': mnist.test.images})

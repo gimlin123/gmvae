@@ -17,11 +17,6 @@ config = configparser.ConfigParser()
 config.read('gmvae.ini')
 config = config['gmvae_k']
 
-formatted_triplets = None
-if config.getboolean('triplet_loss'):
-    formatted_triplets = np.load(open(config['triplet_path'], 'r'))
-    # print(formatted_triplets.shape)
-
 if config['data'] == 'mnist':
     data = input_data.read_data_sets("MNIST_data/", one_hot=True)
 elif config['data'] == 'amazon':
@@ -89,10 +84,6 @@ else:
         scaler = StandardScaler()
         data['train']['data'] = scaler.fit_transform(data['train']['data'])
         data['test']['data'] = scaler.transform(data['test']['data'])
-        if config.getboolean('triplet_loss'):
-            ft_shape = formatted_triplets.shape
-            flatten_shape = (ft_shape[0] * ft_shape[1], ft_shape[2])
-            formatted_triplets = scaler.transform(formatted_triplets.reshape(flatten_shape)).reshape(ft_shape)
 
 try:
     k = int(sys.argv[1])
@@ -129,7 +120,8 @@ def generate_mean_image(clus, k):
 def px_graph(z, y):
     layer_size = int(config['r_layer_size'])
     embedding_size = int(config['embedding_size'])
-    reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='px')) > 0
+#     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='px')) > 0
+    reuse = tf.AUTO_REUSE
     # -- p(z)
     with tf.variable_scope('pz'):
         zm = Dense(y, embedding_size, 'zm', reuse=reuse)
@@ -138,19 +130,19 @@ def px_graph(z, y):
     with tf.variable_scope('px'):
         if config['data'] == 'amazon_fashion':
             batch_size = tf.shape(z)[0]
-            log_h1 = tf.reshape(Dense(z, 32768, 'log_layer1', tf.nn.relu, reuse=reuse), [-1, 4, 4, 1024])
+            log_h1 = tf.reshape(Dense(z, 16384, 'log_layer1', tf.nn.relu, reuse=reuse), [-1, 4, 4, 1024])
             log_h2 = deconv2d(log_h1, [batch_size, 8, 8, 512], 'log_layer2', tf.nn.relu, reuse=reuse)
             log_h3 = deconv2d(log_h2, [batch_size, 16, 16, 256], 'log_layer3', tf.nn.relu, reuse=reuse)
             log_h4 = deconv2d(log_h3, [batch_size, 32, 32, 128], 'log_layer4', tf.nn.relu, reuse=reuse)
             log_h5 = deconv2d(log_h4, [batch_size, 64, 64, 64], 'log_layer5', tf.nn.relu, reuse=reuse)
-            px_logit = tf.tanh(tf.reshape(deconv2d(log_h5, [batch_size, 128, 128, 3], 'logit', reuse=reuse), [-1, 128*128*3]))
+            px_logit = tf.tanh(tf.reshape(deconv2d(log_h5, [batch_size, 128, 128, 3], 'logit', reuse=reuse), [batch_size, 128*128*3]))
             
-            var_h1 = tf.reshape(Dense(z, 32768, 'var_layer1', tf.nn.relu, reuse=reuse), [-1, 4, 4, 1024])
+            var_h1 = tf.reshape(Dense(z, 16384, 'var_layer1', tf.nn.relu, reuse=reuse), [-1, 4, 4, 1024])
             var_h2 = deconv2d(var_h1, [batch_size, 8, 8, 512], 'var_layer2', tf.nn.relu, reuse=reuse)
             var_h3 = deconv2d(var_h2, [batch_size, 16, 16, 256], 'var_layer3', tf.nn.relu, reuse=reuse)
             var_h4 = deconv2d(var_h3, [batch_size, 32, 32, 128], 'var_layer4', tf.nn.relu, reuse=reuse)
             var_h5 = deconv2d(var_h4, [batch_size, 64, 64, 64], 'var_layer5', tf.nn.relu, reuse=reuse)
-            xv = tf.reshape(deconv2d(var_h5, [batch_size, 128, 128, 3], 'xv', tf.nn.softplus, reuse=reuse), [-1, 128*128*3])
+            xv = tf.reshape(deconv2d(var_h5, [batch_size, 128, 128, 3], 'xv', tf.nn.softplus, reuse=reuse), [batch_size, 128*128*3])
         else:
             h1 = Dense(z, layer_size, 'layer1', tf.nn.relu, reuse=reuse)
             h2 = Dense(h1, layer_size, 'layer2', tf.nn.relu, reuse=reuse)
@@ -164,7 +156,7 @@ tf.reset_default_graph()
 # x = Placeholder((None, int(config['data_x'])), name='x')
 # changing for custom stuff
 x = Placeholder((None, int(config['data_x'])), name='x')
-l = Placeholder((None, None), name='l')
+# l = Placeholder((None, None), name='l')
 
 
 # binarize data and create a y "placeholder"
@@ -233,7 +225,7 @@ if config['data'] == 'mnist':
         dirname = '/'.join(['logs', 'mnist', config['data_type'], 'triplet', 'kl%s_r%s_tm%s_ti%s_tl%s_clus_%d' % (config['kl_loss_lambda'],
             config['reconstruct_loss_lambda'], config['tl_margin'], config['tl_interleave_epoch'], config['tl_lambda'], k)])
     else:
-        dirname = '/'.join(['logs', 'mnist', config['data_type'], 'no-triplet', 'kl%s_r%s_clus_%d' % (config['kl_loss_lambda'], config['reconstruct_loss_lambda', k])])
+        dirname = '/'.join(['logs', 'mnist', config['data_type'], 'no-triplet', 'kl%s_r%s_clus_%d' % (config['kl_loss_lambda'], config['reconstruct_loss_lambda'], k)])
 
 elif config['data'] == 'amazon':
     if config.getboolean('triplet_loss'):

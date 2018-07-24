@@ -10,8 +10,8 @@ config['gmvae_k'] = {
     'plot_data': 'yes',
     'x_min': '',
     'x_max': '',
-    'var_downscale': '10',
-    'conv_var_downscale': '10',
+    'var_downscale': '2',
+    'conv_var_downscale': '2',
     'shuffle': 'yes',
     
     'asin_path': '../../data/mike_data/cleaned_watch_data/asins/watch_asins_0.npy',
@@ -21,16 +21,20 @@ config['gmvae_k'] = {
     'image_path': '../../data/mike_data/cleaned_watch_data/images/',
     'image_sample_cluster' : '50',
 
-    'kl_loss_lambda' : '10',
+    'kl_loss_lambda' : '100',
     'reconstruct_loss_lambda': '1',
-    'entropy_lambda' : '1',
+    'entropy_lambda' : '500',
 
-    'triplet_loss': 'no',
+    'triplet_loss': 'yes',
     'triplet_interleave': 'yes',
-    'triplet_path': 'triplets.npy',
+    'triplet_path': '../../data/mike_data/new_data/triplet/triplets_32.npy',
     'tl_margin': '0.2',
     'tl_interleave_epoch': '250',
     'tl_lambda': '100',
+    
+    'tl_need_features': 'yes',
+    'tl_asin_path': '../../data/mike_data/new_data/128p/asins.npy',
+    'tl_feature_path': '../../data/mike_data/new_data/128p/features.npy',
 
     'scale_mnist': 'no',
     'mnist_scaling_factor': '0.5',
@@ -41,9 +45,9 @@ config['gmvae_k'] = {
     'amazon_fashion_feature': '../../data/mike_data/new_data/128p/equal_cluster_data_15000/features.npy',
     'amazon_fashion_label': '../../data/mike_data/new_data/128p/equal_cluster_data_15000/labels.npy',
     
-    'embedding_size': '256',
-    'layer_size': '1024',
-    'r_layer_size': '1024'
+    'embedding_size': '512',
+    'layer_size': '512',
+    'r_layer_size': '512'
 }
 
 config['linear_discriminator'] = {

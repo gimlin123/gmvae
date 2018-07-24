@@ -23,7 +23,8 @@ config = config['gmvae_k']
 
 # vae subgraphs
 def qy_graph(x, k=10):
-    reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qy')) > 0
+    reuse = tf.AUTO_REUSE
+#     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qy')) > 0
     layer_size = int(config['layer_size'])
     # -- q(y)
     with tf.variable_scope('qy'):
@@ -34,7 +35,8 @@ def qy_graph(x, k=10):
     return qy_logit, qy
 
 def conv_qy_graph(x, k=10):
-    reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qy')) > 0
+#     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qy')) > 0
+    reuse = tf.AUTO_REUSE
     layer_size = int(config['layer_size'])
     # -- q(y)
     with tf.variable_scope('qy'):
@@ -50,7 +52,8 @@ def conv_qy_graph(x, k=10):
     return qy_logit, qy
 
 def qz_graph(x, y):
-    reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qz')) > 0
+    reuse = tf.AUTO_REUSE
+#     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qz')) > 0
     # -- q(z)
     layer_size = int(config['layer_size'])
     embedding_size = int(config['embedding_size'])
@@ -64,8 +67,9 @@ def qz_graph(x, y):
     return z, zm, zv
 
 def conv_qz_graph(x, y):
-    reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qz')) > 0
+#     reuse = len(tf.get_collection(tf.GraphKeys.VARIABLES, scope='qz')) > 0
     # -- q(z)
+    reuse = tf.AUTO_REUSE
     layer_size = int(config['layer_size'])
     embedding_size = int(config['embedding_size'])
     with tf.variable_scope('qz'):
@@ -76,7 +80,7 @@ def conv_qz_graph(x, y):
         h4 = conv2d(h3, 512, 'layer4', tf.nn.relu, reuse=reuse)
         h5 = conv2d(h4, 1024, 'layer5', tf.nn.relu, reuse=reuse)
         h6 = tf.contrib.layers.flatten(h5)
-        xy = tf.concat((h6, y), 1, name='xy/concat')
+        xy = tf.concat((h6, y*1000), 1, name='xy/concat')
         zm = Dense(xy, embedding_size, 'zm', reuse=reuse)
         zv = Dense(xy, embedding_size, 'zv', tf.nn.softplus, reuse=reuse)
         z = GaussianSample(zm, zv, 'z')
@@ -117,6 +121,15 @@ def triplet_loss(z, qy, k):
     z_normalized = tf.nn.l2_normalize(z, 2)
     a, p, n = tf.split(z_normalized, 3, axis=1)
     a_qy, p_qy, n_qy = tf.split(qy, 3, axis=0)
-
-    return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
-                     tf.multiply(a[i], p[j])), axis=1) for i in range(k) for j in range(k) for z in range(k)])
+    
+    out = 0.0
+    
+    for i in range(k):
+        for j in range(k):
+            for z in range(k):
+                out = tf.add(out, a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
+                     tf.multiply(a[i], p[j])), axis=1))
+                
+    return out
+#     return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
+#                      tf.multiply(a[i], p[j])), axis=1) for i in range(k) for j in range(k) for z in range(k)])
