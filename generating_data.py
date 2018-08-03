@@ -327,22 +327,22 @@ def format_triplets(images, triplets, batches):
     return np.concatenate((a_images_split, p_images_split, n_images_split), axis=1)
 
 # generate_linear_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000)
-generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)
+# generate_polynomial_dependence(dim_x, dim_y, dim_z, 10, 100000, 10000, 5)
 
 # generate_mnist_cats()
 # generating triplets
 #=======================================================
 batches = 50
-# images, triplets = generate_random_triplets(5000)
-# formatted_triplets = format_triplets(images, triplets, batches)
-# np.save(open("triplets.npy", "wb"), formatted_triplets)
+images, triplets = generate_random_triplets(5000)
+formatted_triplets = format_triplets(images, triplets, batches)
+np.save(open("triplets.npy", "wb"), formatted_triplets)
 
 # images, triplets = generate_random_triplets_modified(5000, train_images_cats)
 # formatted_triplets = format_triplets(images, triplets, batches)
 # np.save(open("triplets_modified.npy", "wb"), formatted_triplets)
 
-custom_data = pickle.load(open("custom_data/polynomial.p", "rb" ))
-images, triplets = generate_random_triplets_custom(5000, custom_data['train'])
-formatted_triplets = format_triplets(images, triplets, batches)
-np.save(open('triplets_custom.npy', 'wb'), formatted_triplets)
+# custom_data = pickle.load(open("custom_data/polynomial.p", "rb" ))
+# images, triplets = generate_random_triplets_custom(5000, custom_data['train'])
+# formatted_triplets = format_triplets(images, triplets, batches)
+# np.save(open('triplets_custom.npy', 'wb'), formatted_triplets)
 #=======================================================

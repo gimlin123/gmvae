@@ -3,15 +3,15 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorbayes import Constant, Placeholder, Dense, GaussianSample, log_bernoulli_with_logits, log_normal, cross_entropy_with_logits, show_graph, progbar, deconv2d
 import numpy as np
 import sys
-from shared_subgraphs import qy_graph, conv_qy_graph, qz_graph, conv_qz_graph, labeled_loss, labeled_loss_real, labeled_loss_custom, triplet_loss
+from shared_subgraphs import qy_graph, conv_qy_graph, qz_graph, conv_qz_graph, labeled_loss, labeled_loss_real, labeled_loss_custom, triplet_loss, triplet_loss_rand
 from custom_utils import train_custom
-from utils import train, train_amazon
+from utils import train, train_amazon, run_tSNE
 import configparser
 import pickle
 from sklearn.preprocessing import StandardScaler
 import os
 
-os.environ['cuda_visible_devices'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 config = configparser.ConfigParser()
 config.read('gmvae.ini')
@@ -50,33 +50,37 @@ elif config['data'] == 'amazon_fashion':
     features = np.load(config['amazon_fashion_feature'])
     labels = np.load(config['amazon_fashion_label'])
     
-    bound_asins = int(len(asins) * 4 / 5)
-    bound_features = int(len(features) * 4 / 5)
+    bound = int(len(asins) * 4 / 5)
     
-    train_asins = asins[:bound_asins]
-    train_features = features[:bound_features]
-    test_asins = asins[bound_asins:]
-    test_features = features[bound_features:]
+    train_asins = asins[:bound]
+    train_features = features[:bound]
+    train_labels = labels[:bound]
+    test_asins = asins[bound:]
+    test_features = features[bound:]
+    test_labels = labels[bound:]
     
     if config.getboolean('shuffle'):
-        train_len = len(train_asins)
-        
         combined_asins = np.concatenate([train_asins, test_asins], 0)
         combined_features = np.concatenate([train_features, test_features], 0)
+        combined_labels = np.concatenate([train_labels, test_labels], 0)
         
         shuffle = np.random.permutation(len(combined_asins))
         combined_asins = combined_asins[shuffle]
         combined_features = combined_features[shuffle]
+        combined_labels = combined_labels[shuffle]
         
-        train_asins = combined_asins[:train_len]
-        test_asins = combined_asins[train_len:]
+        train_asins = combined_asins[:bound]
+        test_asins = combined_asins[bound:]
         
-        train_features = combined_features[:train_len]
-        test_features = combined_features[train_len:]
+        train_features = combined_features[:bound]
+        test_features = combined_features[bound:]
+        
+        train_labels = combined_labels[:bound]
+        test_labels = combined_labels[bound:]
     
     if config.getboolean('normalize_data'):
-        train_features = (train_features / 127.5) - 1
-        test_features = (test_features / 127.5) - 1
+        train_features = (train_features / 255.)
+        test_features = (test_features / 255.)
 else:
     data = pickle.load(open(config['data'], "rb" ))
     # print(data['train']['data'].shape)
@@ -135,14 +139,14 @@ def px_graph(z, y):
             log_h3 = deconv2d(log_h2, [batch_size, 16, 16, 256], 'log_layer3', tf.nn.relu, reuse=reuse)
             log_h4 = deconv2d(log_h3, [batch_size, 32, 32, 128], 'log_layer4', tf.nn.relu, reuse=reuse)
             log_h5 = deconv2d(log_h4, [batch_size, 64, 64, 64], 'log_layer5', tf.nn.relu, reuse=reuse)
-            px_logit = tf.tanh(tf.reshape(deconv2d(log_h5, [batch_size, 128, 128, 3], 'logit', reuse=reuse), [batch_size, 128*128*3]))
+            px_logit = tf.reshape(deconv2d(log_h5, [batch_size, 128, 128, 3], 'logit', tf.sigmoid, reuse=reuse), [batch_size, 128*128*3])
             
             var_h1 = tf.reshape(Dense(z, 16384, 'var_layer1', tf.nn.relu, reuse=reuse), [-1, 4, 4, 1024])
             var_h2 = deconv2d(var_h1, [batch_size, 8, 8, 512], 'var_layer2', tf.nn.relu, reuse=reuse)
             var_h3 = deconv2d(var_h2, [batch_size, 16, 16, 256], 'var_layer3', tf.nn.relu, reuse=reuse)
             var_h4 = deconv2d(var_h3, [batch_size, 32, 32, 128], 'var_layer4', tf.nn.relu, reuse=reuse)
             var_h5 = deconv2d(var_h4, [batch_size, 64, 64, 64], 'var_layer5', tf.nn.relu, reuse=reuse)
-            xv = tf.reshape(deconv2d(var_h5, [batch_size, 128, 128, 3], 'xv', tf.nn.softplus, reuse=reuse), [batch_size, 128*128*3])
+            xv = tf.reshape(deconv2d(var_h5, [batch_size, 128, 128, 3], 'xv', tf.sigmoid, reuse=reuse), [batch_size, 128*128*3])
         else:
             h1 = Dense(z, layer_size, 'layer1', tf.nn.relu, reuse=reuse)
             h2 = Dense(h1, layer_size, 'layer2', tf.nn.relu, reuse=reuse)
@@ -187,6 +191,7 @@ with tf.name_scope('loss'):
     losses = [None] * k
     reconstruct_losses = [None] * k
     kl_losses = [None] * k
+    nondegeneracy_losses = [None] * k
     for i in range(k):
         with tf.name_scope('loss_at{:d}'.format(i)):
             if config['data'] == 'mnist':
@@ -210,15 +215,42 @@ with tf.name_scope('loss'):
         kl_loss = tf.add_n([qy[:, i] * kl_losses[i] for i in range(k)])
     with tf.name_scope('final_loss'):
         loss = tf.add_n([nent] + [qy[:, i] * losses[i] for i in range(k)])
+        if config.getboolean('force_nondegeneracy'):
+#             batch_size = int(config['batch_size'])
+#             choice_logits = tf.reduce_sum(tf.one_hot(tf.argmax(qy, 1), k), 0)
+#             choice_logits = tf.one_hot(tf.argmax(qy, 1), k)
+            for ind in range(k):
+                nd_loss = tf.cast(tf.equal(tf.argmax(qy, 1), ind), tf.float32) * qy[:, ind] * float(config['choice_ent_lambda'])
+                nondegeneracy_losses[ind] = nd_loss
+                loss += nd_loss
+#             log_choice_logits = tf.nn.log_softmax(choice_logits)
+#             choice_ent = -tf.reduce_sum(tf.nn.softmax(choice_logits) * log_choice_logits, 0)
+# #             choice_logits = tf.add_n(tf.unstack(tf.one_hot(tf.argmax(qy, 1), k), batch_size))
+# #             choice_logits = tf.reshape(tf.tile(choice_logits, [batch_size]), (-1, k))
+#             loss += -choice_ent * float(config['choice_ent_lambda'])
     with tf.name_scope('final_triplet_loss'):
         final_trip_loss = loss[::3] + loss[1::3] + loss[2::3] + trip_loss * float(config['tl_lambda'])
 
+# optimizer = tf.train.AdamOptimizer(learning_rate=0.0005)
+# gvs_train = optimizer.compute_gradients(loss)
+# # max_gradient = tf.reduce_max([tf.reduce_max(gv[0]) for gv in gvs])
+# # avg_gradient = tf.reduce_mean([tf.reduce_mean(gv[0]) for gv in gvs])
+# capped_gvs_train = [(tf.clip_by_value(grad, -1000., 1000.), var) for grad, var in gvs_train]
+# train_step = optimizer.apply_gradients(capped_gvs_train)
 
+# gvs_triplet = optimizer.compute_gradients(final_trip_loss)
+# capped_gvs_triplet = [(tf.clip_by_value(grad, -1000., 1000.), var) for grad, var in gvs_triplet]
+# triplet_step = optimizer.apply_gradients(capped_gvs_triplet)
+# train_op = optimizer.apply_gradients(capped_gvs)
 train_step = tf.train.AdamOptimizer(learning_rate=0.0005).minimize(loss)
-triplet_step = tf.train.AdamOptimizer().minimize(final_trip_loss)
+triplet_step = tf.train.AdamOptimizer(learning_rate=0.0005).minimize(final_trip_loss)
 sess = tf.Session()
 sess.run(tf.global_variables_initializer()) # Change initialization protocol depending on tensorflow version
-sess_info = (sess, qy_logit, nent, loss, reconstruct_loss, kl_loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image, xu)
+saver = tf.train.Saver()
+sess_info = (sess, qy_logit, nent, loss, reconstruct_loss, kl_loss, train_step, trip_loss, triplet_step, generate_n_images, generate_mean_image, xu, nondegeneracy_losses, saver)
+
+if config.getboolean('restore'):
+    saver.restore(sess, config['restore_path'])
 
 if config['data'] == 'mnist':
     if config.getboolean('triplet_loss'):
@@ -249,11 +281,20 @@ else:
     else:
         dirname = '/'.join(['logs', 'other', 'no-triplet', '%s_kl%s_r%s_clus_%d' % (datafile, config['kl_loss_lambda'], config['reconstruct_loss_lambda'], k)])
 
-if config['data'] == 'mnist':
-    train(dirname, data, sess_info, 10)
-elif config['data'] == 'amazon':
-    train_amazon(dirname, train_asins, test_asins, train_features, test_features, sess_info, 20)
-elif config['data'] == 'amazon_fashion':
-    train_amazon(dirname, train_asins, test_asins, train_features, test_features, sess_info, 20, labels, k)
-else:
-    train_custom(dirname, data, sess_info, 10)
+# if config['data'] == 'mnist':
+#     dirnum = train(dirname, data, sess_info, 20)
+#     test_features = data.test.images
+#     test_labels = data.test.labels
+# elif config['data'] == 'amazon':
+#     dirnum = train_amazon(dirname, train_asins, test_asins, train_features, test_features, sess_info, 10)
+# elif config['data'] == 'amazon_fashion':
+#     dirnum = train_amazon(dirname, train_asins, test_asins, train_features, test_features, sess_info, 15, train_labels, test_labels, k)
+# else:
+#     dirnum = train_custom(dirname, data, sess_info, 10)
+test_features = data['test']['data']
+test_labels = data['test']['clusters']
+saver.restore(sess, "logs/other/triplet/polynomial_kl1_r1_tm0.2_ti250_tl100_clus_20.4/model.ckpt")
+dirnum = 4
+if config.getboolean('tSNE'):
+    random = np.random.choice(len(test_features), 1000)
+    run_tSNE(dirname, dirnum, test_features[random], test_labels[random], (config['data'] != 'mnist' and config['data'] != 'amazon_fashion'))

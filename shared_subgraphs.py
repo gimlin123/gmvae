@@ -80,7 +80,7 @@ def conv_qz_graph(x, y):
         h4 = conv2d(h3, 512, 'layer4', tf.nn.relu, reuse=reuse)
         h5 = conv2d(h4, 1024, 'layer5', tf.nn.relu, reuse=reuse)
         h6 = tf.contrib.layers.flatten(h5)
-        xy = tf.concat((h6, y*1000), 1, name='xy/concat')
+        xy = tf.concat((h6, y), 1, name='xy/concat')
         zm = Dense(xy, embedding_size, 'zm', reuse=reuse)
         zv = Dense(xy, embedding_size, 'zv', tf.nn.softplus, reuse=reuse)
         z = GaussianSample(zm, zv, 'z')
@@ -111,12 +111,12 @@ def labeled_loss_real(x, px_logit, xv, z, zm, zv, zm_prior, zv_prior):
     return (r_loss, kl_loss)
 
 def labeled_loss_custom(x, x_reconstruct, xv, z, zm, zv, zm_prior, zv_prior):
-    r_loss = (-log_normal(x, x_reconstruct, tf.clip_by_value(xv, 0.1, 1))) * float(config['reconstruct_loss_lambda'])
+    r_loss = (-log_normal(x, x_reconstruct, tf.clip_by_value(xv, 0.05, 0.2))) * float(config['reconstruct_loss_lambda'])
     kl_loss = (log_normal(z, zm, zv) - log_normal(z, zm_prior, zv_prior)) * float(config['kl_loss_lambda'])
 #     return xy_loss - np.log(0.1)
     return (r_loss, kl_loss)
 
-def triplet_loss(z, qy, k):
+def triplet_loss_rand(z, qy, k, num_experiments=10):
     alpha = float(config['tl_margin'])
     z_normalized = tf.nn.l2_normalize(z, 2)
     a, p, n = tf.split(z_normalized, 3, axis=1)
@@ -124,12 +124,32 @@ def triplet_loss(z, qy, k):
     
     out = 0.0
     
-    for i in range(k):
-        for j in range(k):
-            for z in range(k):
-                out = tf.add(out, a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
-                     tf.multiply(a[i], p[j])), axis=1))
+    for exp in range(num_experiments):
+        a_rand = np.random.choice(k, 5, replace=False)
+        p_rand = np.random.choice(k, 5, replace=False)
+        n_rand = np.random.choice(k, 5, replace=False)
+    
+        for i in a_rand:
+            for j in p_rand:
+                for z in n_rand:
+                    out = tf.add(out, a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - tf.multiply(a[i], p[j])), axis=1))
+
+    return out / float(num_experiments) * (k / 5.)
+
+def triplet_loss(z, qy, k):
+    alpha = float(config['tl_margin'])
+    z_normalized = tf.nn.l2_normalize(z, 2)
+    a, p, n = tf.split(z_normalized, 3, axis=1)
+    a_qy, p_qy, n_qy = tf.split(qy, 3, axis=0)
+    
+#     out = 0.0
+    
+#     for i in range(k):
+#         for j in range(k):
+#             for z in range(k):
+#                 out = tf.add(out, a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
+#                      tf.multiply(a[i], p[j])), axis=1))
                 
-    return out
-#     return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
-#                      tf.multiply(a[i], p[j])), axis=1) for i in range(k) for j in range(k) for z in range(k)])
+#     return out
+    return tf.add_n([a_qy[:, i] * p_qy[:, j] * n_qy[:, z] * tf.reduce_sum(tf.maximum(0.0, alpha + tf.multiply(a[i], n[z]) - 
+                     tf.multiply(a[i], p[j])), axis=1) for i in range(k) for j in range(k) for z in range(k)])
